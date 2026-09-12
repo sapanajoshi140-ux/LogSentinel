@@ -1,0 +1,101 @@
+template_id,template
+1,081109 203615 148 INFO dfs.DataNode$PacketResponder: PacketResponder 1 for block blk_38865049064139660 terminating
+1,081109 <*> <*> INFO dfs.DataNode$PacketResponder: PacketResponder <*> for block <*> terminating
+2,081109 204005 35 INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: 10.251.73.220:50010 is added to blk_7128370237687728475 size 67108864
+1,081109 <*> <*> INFO dfs.DataNode$PacketResponder: PacketResponder <*> for block <*> terminating
+1,081109 <*> <*> INFO dfs.DataNode$PacketResponder: PacketResponder <*> for block <*> terminating
+2,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size 67108864
+2,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size 67108864
+2,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size 67108864
+1,081109 <*> <*> INFO dfs.DataNode$PacketResponder: PacketResponder <*> for block <*> terminating
+3,081109 204655 556 INFO dfs.DataNode$PacketResponder: Received block blk_3587508140051953248 of size 67108864 from /10.251.42.84
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size 67108864 from <*>
+4,081109 204815 653 INFO dfs.DataNode$DataXceiver: Receiving block blk_5792489080791696128 src: /10.251.30.6:33145 dest: /10.251.30.6:50010
+4,081109 <*> <*> INFO dfs.DataNode$DataXceiver: Receiving block <*> src: <*> dest: <*>
+2,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size 67108864
+4,081109 <*> <*> INFO dfs.DataNode$DataXceiver: Receiving block <*> src: <*> dest: <*>
+5,081109 205035 28 INFO dfs.FSNamesystem: BLOCK* NameSystem.allocateBlock: /user/root/rand/_temporary/_task_200811092030_0001_m_000590_0/part-00590. blk_-1727475099218615100
+1,081109 <*> <*> INFO dfs.DataNode$PacketResponder: PacketResponder <*> for block <*> terminating
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size 67108864 from <*>
+5,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.allocateBlock: <*> <*>
+2,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size 67108864
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size 67108864 from <*>
+2,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size 67108864
+2,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size 67108864
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size 67108864 from <*>
+2,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size 67108864
+4,081109 <*> <*> INFO dfs.DataNode$DataXceiver: Receiving block <*> src: <*> dest: <*>
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size 67108864 from <*>
+5,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.allocateBlock: <*> <*>
+6,081109 205931 13 INFO dfs.DataBlockScanner: Verification succeeded for blk_-4980916519894289629
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size 67108864 from <*>
+4,081109 <*> <*> INFO dfs.DataNode$DataXceiver: Receiving block <*> src: <*> dest: <*>
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size 67108864 from <*>
+2,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size 67108864
+4,081109 <*> <*> INFO dfs.DataNode$DataXceiver: Receiving block <*> src: <*> dest: <*>
+2,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size 67108864
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size 67108864 from <*>
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size 67108864 from <*>
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size 67108864 from <*>
+2,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size 67108864
+4,081109 <*> <*> INFO dfs.DataNode$DataXceiver: Receiving block <*> src: <*> dest: <*>
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size 67108864 from <*>
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size <*> from <*>
+4,081109 <*> <*> INFO dfs.DataNode$DataXceiver: Receiving block <*> src: <*> dest: <*>
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size <*> from <*>
+2,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size 67108864
+1,081109 <*> <*> INFO dfs.DataNode$PacketResponder: PacketResponder <*> for block <*> terminating
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size <*> from <*>
+2,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size 67108864
+1,081109 <*> <*> INFO dfs.DataNode$PacketResponder: PacketResponder <*> for block <*> terminating
+2,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size <*>
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size <*> from <*>
+2,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size <*>
+1,081109 <*> <*> INFO dfs.DataNode$PacketResponder: PacketResponder <*> for block <*> terminating
+1,081109 <*> <*> INFO dfs.DataNode$PacketResponder: PacketResponder <*> for block <*> terminating
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size <*> from <*>
+1,081109 <*> <*> INFO dfs.DataNode$PacketResponder: PacketResponder <*> for block <*> terminating
+4,081109 <*> <*> INFO dfs.DataNode$DataXceiver: Receiving block <*> src: <*> dest: <*>
+5,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.allocateBlock: <*> <*>
+5,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.allocateBlock: <*> <*>
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size <*> from <*>
+2,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size <*>
+2,081109 <*> <*> INFO dfs.FSNamesystem: BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size <*>
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size <*> from <*>
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size <*> from <*>
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size <*> from <*>
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size <*> from <*>
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size <*> from <*>
+1,081109 <*> <*> INFO dfs.DataNode$PacketResponder: PacketResponder <*> for block <*> terminating
+3,081109 <*> <*> INFO dfs.DataNode$PacketResponder: Received block <*> of size <*> from <*>
+6,081109 <*> 13 INFO dfs.DataBlockScanner: Verification succeeded for <*>
+4,081109 <*> <*> INFO dfs.DataNode$DataXceiver: Receiving block <*> src: <*> dest: <*>
+1,081109 <*> <*> INFO dfs.DataNode$PacketResponder: PacketResponder <*> for block <*> terminating
+7,081109 213837 19 INFO dfs.FSDataset: Deleting block blk_1781953582842324563 file /mnt/hadoop/dfs/data/current/subdir5/blk_1781953582842324563
+8,081109 213847 2552 INFO dfs.DataNode$DataXceiver: 10.251.194.213:50010 Served block blk_-7724713468912166542 to /10.251.203.80
+8,081109 <*> <*> INFO dfs.DataNode$DataXceiver: <*> Served block <*> to <*>
+8,081109 <*> <*> INFO dfs.DataNode$DataXceiver: <*> Served block <*> to <*>
+8,081109 <*> <*> INFO dfs.DataNode$DataXceiver: <*> Served block <*> to <*>
+9,081109 214043 2561 WARN dfs.DataNode$DataXceiver: 10.251.30.85:50010:Got exception while serving blk_-2918118818249673980 to /10.251.90.64:
+9,081109 <*> <*> WARN dfs.DataNode$DataXceiver: <*> exception while serving <*> to <*>
+8,081109 <*> <*> INFO dfs.DataNode$DataXceiver: <*> Served block <*> to <*>
+9,081109 <*> <*> WARN dfs.DataNode$DataXceiver: <*> exception while serving <*> to <*>
+9,081109 <*> <*> WARN dfs.DataNode$DataXceiver: <*> exception while serving <*> to <*>
+8,081109 <*> <*> INFO dfs.DataNode$DataXceiver: <*> Served block <*> to <*>
+9,081109 <*> <*> WARN dfs.DataNode$DataXceiver: <*> exception while serving <*> to <*>
+9,081109 <*> <*> WARN dfs.DataNode$DataXceiver: <*> exception while serving <*> to <*>
+9,081109 <*> <*> WARN dfs.DataNode$DataXceiver: <*> exception while serving <*> to <*>
+8,081109 <*> <*> INFO dfs.DataNode$DataXceiver: <*> Served block <*> to <*>
+9,081109 <*> <*> WARN dfs.DataNode$DataXceiver: <*> exception while serving <*> to <*>
+9,081109 <*> <*> WARN dfs.DataNode$DataXceiver: <*> exception while serving <*> to <*>
+8,081109 <*> <*> INFO dfs.DataNode$DataXceiver: <*> Served block <*> to <*>
+9,081109 <*> <*> WARN dfs.DataNode$DataXceiver: <*> exception while serving <*> to <*>
+9,081109 <*> <*> WARN dfs.DataNode$DataXceiver: <*> exception while serving <*> to <*>
+9,081109 <*> <*> WARN dfs.DataNode$DataXceiver: <*> exception while serving <*> to <*>
+9,081109 <*> <*> WARN dfs.DataNode$DataXceiver: <*> exception while serving <*> to <*>
+9,081109 <*> <*> WARN dfs.DataNode$DataXceiver: <*> exception while serving <*> to <*>
+9,081109 <*> <*> WARN dfs.DataNode$DataXceiver: <*> exception while serving <*> to <*>
+8,081109 <*> <*> INFO dfs.DataNode$DataXceiver: <*> Served block <*> to <*>
+9,081109 <*> <*> WARN dfs.DataNode$DataXceiver: <*> exception while serving <*> to <*>
+9,081109 <*> <*> WARN dfs.DataNode$DataXceiver: <*> exception while serving <*> to <*>
+9,081109 <*> <*> WARN dfs.DataNode$DataXceiver: <*> exception while serving <*> to <*>
