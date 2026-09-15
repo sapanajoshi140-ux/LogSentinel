@@ -14,13 +14,12 @@ class SequenceBuilder:
         """Parsed log dataframe ko block_id ke hisab se group karta hai."""
         df = df.copy()
         
-        # Block ID extract karein
         df['block_id'] = df['template'].apply(self.extract_block_id)
         
-        # Null values remove karein
+        
         df_clean = df.dropna(subset=['block_id'])
         
-        # Groupby block_id
+        
         sequences = df_clean.groupby('block_id')['template_id'].apply(list).reset_index()
         sequences.columns = ['block_id', 'event_sequence']
         
