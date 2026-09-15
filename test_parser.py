@@ -1,10 +1,10 @@
 import os
 from src.parser import LogParser
 
-# Parser initialize karein
+
 parser = LogParser(config_path="config/drain3.ini")
 
-# Sample log file path
+
 sample_file_path = "data/raw/sample.log"
 
 if not os.path.exists(sample_file_path) and os.path.exists("sample.log"):
