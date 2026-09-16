@@ -1,0 +1,85 @@
+# Dataset we are currently working with.
+# HDFS = Hadoop Distributed File System log dataset.
+dataset: hdfs
+
+drain:
+  # Maximum depth of the Drain parsing tree.
+  # It controls how Drain organizes log messages while finding templates.
+  depth: 4
+
+  # Similarity threshold used by Drain.
+  # 0.5 means log messages need at least this similarity
+  # to be placed into the same template/cluster.
+  sim_th: 0.5        # Drain paper Table II value for HDFS
+
+  # Maximum number of templates/clusters Drain can keep.
+  # null means there is no fixed limit.
+  # An integer value can be used to enable LRU-based drift adaptation.
+  max_clusters: null
+
+
+split:
+  # 70% of the data is used for training.
+  train_frac: 0.7
+
+  # 15% of the data is used for validation.
+  # The remaining 15% is automatically used for testing.
+  val_frac: 0.15
+
+
+detectors:
+  # Controls how quickly the EWMA detector reacts
+  # to changes in recent log behavior.
+  # Higher value = reacts more quickly.
+  ewma_alpha: 0.3
+
+  # Threshold used by the EWMA detector
+  # to decide whether a log behavior is abnormal.
+  ewma_threshold: 3.0
+
+  # Number of previous template transitions considered
+  # by the Markov chain detector.
+  # 1 means first-order Markov chain.
+  markov_order: 1
+
+  # Number of hidden units in the BiLSTM layer.
+  # Larger values can learn more patterns but require
+  # more computation.
+  bilstm_hidden_dim: 64
+
+  # Number of log templates in one HDFS sequence.
+  # HDFS logs are grouped using block IDs,
+  # so each sequence corresponds to a block.
+  bilstm_window: 10
+
+  # Number of times the BiLSTM model goes through
+  # the training data.
+  bilstm_epochs: 10
+
+
+dawf:
+  # Controls how strongly DAWF changes detector weights
+  # according to their recent performance/loss.
+  beta: 0.5
+
+  # Prevents any detector from getting a weight
+  # smaller than 0.01.
+  min_weight: 0.01
+
+
+paths:
+  # Location of the original HDFS log file.
+  raw_log: data/raw/HDFS.log
+
+  # Location of the HDFS anomaly label file.
+  # The labels are used to identify anomalous HDFS blocks.
+  labels: data/raw/anomaly_label.csv
+
+  # Directory where processed HDFS data will be stored.
+  processed_dir: data/processed/hdfs
+
+  # Directory for saved models and other ML artifacts.
+  artifacts_dir: artifacts/hdfs
+
+  # Directory where final experiment results will be stored.
+  results_dir: results/hdfs
