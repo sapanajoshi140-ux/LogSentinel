@@ -1,0 +1,29 @@
+dataset: hdfs
+
+drain:
+  depth: 4
+  sim_th: 0.5        # Drain paper Table II value for HDFS
+  max_clusters: null # unbounded; set an int to enable LRU drift adaptation
+
+split:
+  train_frac: 0.7
+  val_frac: 0.15
+
+detectors:
+  ewma_alpha: 0.3
+  ewma_threshold: 3.0
+  markov_order: 1
+  bilstm_hidden_dim: 64
+  bilstm_window: 10
+  bilstm_epochs: 10
+
+dawf:
+  beta: 0.5
+  min_weight: 0.01
+
+paths:
+  raw_log: data/raw/HDFS.log
+  labels: data/raw/anomaly_label.csv
+  processed_dir: data/processed/hdfs
+  artifacts_dir: artifacts/hdfs
+  results_dir: results/hdfs
