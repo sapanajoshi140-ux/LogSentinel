@@ -78,3 +78,17 @@ def load_split_csv_with_raw_labels(
         ids.append(id_)
         raw_labels.append(raw_label)
     return sequences, labels, ids, raw_labels
+
+
+def normal_only(sequences: list[list[int]], raw_labels: list[str]) -> list[list[int]]:
+    """Keep only sequences whose raw label is exactly "Normal".
+
+    Used to fit detectors that model NORMAL behaviour (Markov). Both
+    "Anomaly" rows (their odd transitions would be learned as normal) and
+    "Unknown" rows (not confirmed normal) are dropped. Needs the raw label
+    strings from load_split_csv_with_raw_labels(), because the binary
+    labels from load_split_csv() collapse "Unknown" into 0.
+    """
+    if len(sequences) != len(raw_labels):
+        raise ValueError("sequences and raw_labels must be the same length")
+    return [seq for seq, lbl in zip(sequences, raw_labels) if lbl == "Normal"]

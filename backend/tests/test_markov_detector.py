@@ -46,7 +46,13 @@ def test_long_repetitive_but_legitimate_block_scores_like_short_normal():
     det = MarkovDetector(order=1).fit(TRAIN)
     short_score = det.score([SHORT_NORMAL])[0]
     long_score = det.score([LONG_NORMAL])[0]
-    assert abs(short_score - long_score) < 0.05
+    novel_score = det.score([[1, 9, 2, 3]])[0]
+    # Both legitimate blocks must sit far below a block with a genuinely
+    # novel transition. (An absolute tolerance is too brittle now that the
+    # END transition adds one extra term to every mean; the property that
+    # matters is "repetition alone does not look anomalous".)
+    assert short_score < 0.15 * novel_score
+    assert long_score < 0.15 * novel_score
 
 
 def test_novel_transition_scores_higher_than_normal():
@@ -104,11 +110,12 @@ def test_score_averages_not_sums_over_sequence_length():
 
     short_score = det.score([looping_short])[0]
     long_score = det.score([looping_long])[0]
-    # A small residual difference is expected (finite-sample smoothing
-    # effects), the point is this must NOT scale up with length the way
-    # summing would -- contrast with the ~100-1000x gaps seen for genuinely
-    # novel transitions/templates elsewhere in this file.
-    assert abs(short_score - long_score) < 0.15
+    # The long sequence has 30/2 = 15x more content than the short one,
+    # so a SUM would score it ~7x higher (60 vs 8 transitions). A mean
+    # must stay in the same ballpark. (The END transition gives short
+    # sequences a slightly larger per-transition share, so the long one
+    # is allowed to be lower, but never proportionally higher.)
+    assert long_score < 2 * short_score
 
 
 def test_higher_order_looks_further_back():
@@ -220,3 +227,58 @@ def test_fit_on_degenerate_training_data_does_not_crash():
     assert det.vocab_ == []
     score = det.score([[1, 2, 3]])[0]
     assert np.isfinite(score)
+
+
+# -- END symbol / normal-only training (the recall fix) -------------------
+
+COMPLETE = [1, 2, 3, 4, 5]
+
+
+def test_truncated_sequence_is_flagged_with_end_symbol():
+    """A sequence that just STOPS early has only normal transitions, so
+    without an END token there is nothing to be surprised by."""
+    train = [COMPLETE] * 100
+    truncated = [1, 2, 3]
+
+    with_end = MarkovDetector(order=1, use_end_symbol=True).fit(train)
+    assert with_end.score([truncated])[0] > 3 * with_end.score([COMPLETE])[0]
+
+    # Documents the old blind spot: without END, truncation is invisible.
+    without_end = MarkovDetector(order=1, use_end_symbol=False).fit(train)
+    assert without_end.score([truncated])[0] <= without_end.score([COMPLETE])[0]
+
+
+def test_most_surprising_transition_reports_truncation_as_end_symbol():
+    from src.detectors.markov import END_SYMBOL
+
+    det = MarkovDetector(order=1).fit([COMPLETE] * 100)
+    prev, nxt, surprisal = det.most_surprising_transition([1, 2, 3])
+    assert (prev, nxt) == (3, END_SYMBOL)
+    assert surprisal > 0
+
+
+def test_next_event_probabilities_sum_to_one_including_end():
+    det = MarkovDetector(order=1, smoothing=0.5).fit([COMPLETE] * 10 + [[1, 2, 9]] * 3)
+    from src.detectors.markov import END_SYMBOL
+
+    for context in [(1,), (2,), (5,), (-2,)]:
+        total = sum(np.exp(det._log_prob(context, t)) for t in det.vocab_ + [END_SYMBOL])
+        assert total == pytest.approx(1.0)
+
+
+def test_token_never_seen_in_training_is_treated_as_unseen():
+    """When fitting on normal-only data, a template the parser knows but
+    that never appeared in normal training must get the unseen penalty,
+    not a tiny smoothed probability."""
+    det = MarkovDetector(order=1, unseen_penalty=20.0).fit([COMPLETE] * 50)
+    score_known = det.score([COMPLETE])[0]
+    score_novel = det.score([[1, 2, 99, 4, 5]])[0]  # 99 never in training
+    assert score_novel > score_known
+    # 99 poisons two transitions (2->99 and 99->4) at exactly the penalty.
+    assert score_novel > 2 * 20.0 / 6 - 0.5
+
+
+def test_most_surprising_transition_reports_original_id_for_novel_template():
+    det = MarkovDetector(order=1).fit([COMPLETE] * 50)
+    prev, nxt, _ = det.most_surprising_transition([1, 2, 99, 4, 5])
+    assert (prev, nxt) == (2, 99)  # the real ID, not UNSEEN_TEMPLATE_ID

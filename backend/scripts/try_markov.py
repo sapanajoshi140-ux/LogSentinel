@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import numpy as np
 
 from src.detectors.markov import MarkovDetector
-from src.features.loading import load_split_csv
+from src.features.loading import load_split_csv, load_split_csv_with_raw_labels, normal_only
 
 
 def main() -> None:
@@ -32,7 +32,7 @@ def main() -> None:
             print(f"ERROR: {p} does not exist. Run parsing + splitting first.")
             sys.exit(1)
 
-    train_seqs, train_labels, train_ids = load_split_csv(train_path)
+    train_seqs, train_labels, train_ids, train_raw = load_split_csv_with_raw_labels(train_path)
     test_seqs, test_labels, test_ids = load_split_csv(test_path)
 
     print(f"train: {len(train_seqs)} sequences, {sum(train_labels)} anomalous "
@@ -40,7 +40,7 @@ def main() -> None:
     print(f"test:  {len(test_seqs)} sequences, {sum(test_labels)} anomalous "
           f"({sum(test_labels) / len(test_labels):.2%})")
 
-    det = MarkovDetector(order=args.order).fit(train_seqs)
+    det = MarkovDetector(order=args.order).fit(normal_only(train_seqs, train_raw))
     scores = det.score(test_seqs)
     test_labels_arr = np.array(test_labels)
 

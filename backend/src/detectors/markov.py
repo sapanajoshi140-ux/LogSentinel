@@ -31,6 +31,29 @@ HOW IT WORKS
        fixed in EWMA's raw-count features. Averaging keeps the score about
        "how unusual is this sequence's transitions", not "how many
        transitions does it have".
+
+TWO CHANGES THAT FIXED LOW RECALL (see scripts/diagnose_markov.py)
+    1. END-OF-SEQUENCE symbol. Many real anomalies (e.g. HDFS blocks that
+       are cut short because a replica never finished) contain ONLY
+       normal-looking transitions -- they simply stop too early. Without a
+       transition for "the sequence ended here", the detector had nothing
+       to be surprised by. With use_end_symbol=True every sequence gets a
+       final END token, so "A followed by END" is learned from normal
+       data and a truncated sequence is scored as unlikely.
+    2. Fit on NORMAL sequences only. If anomalous training blocks are
+       included, their odd transitions are counted as normal and their own
+       surprisal drops. The caller is responsible for passing normal
+       sequences only (see src/pipeline/evaluate.py); "Unknown" rows are
+       excluded too, since they are not confirmed normal.
+
+    Because of (2), any template ID that never appeared in the normal
+    training sequences is treated exactly like UNSEEN_TEMPLATE_ID at score
+    time (automatic unseen_penalty), even if the parser knows that ID.
+
+KNOWN LIMIT (not a bug): a sequence-only detector cannot flag an anomaly
+    whose exact event sequence also occurs in normal data. Measure how
+    many such anomalies exist with scripts/diagnose_markov.py -- that
+    number is the recall ceiling for this detector.
 """
 
 from __future__ import annotations
@@ -44,12 +67,19 @@ from src.detectors.base import Detector
 from src.features.counts import UNSEEN_TEMPLATE_ID
 
 START_SYMBOL = -2  # padding marker, distinct from UNSEEN_TEMPLATE_ID (-1)
+END_SYMBOL = -3    # end-of-sequence marker; lets truncated sequences be detected
 
 
 class MarkovDetector(Detector):
     name = "markov"
 
-    def __init__(self, order: int = 1, smoothing: float = 1.0, unseen_penalty: float = 20.0):
+    def __init__(
+        self,
+        order: int = 1,
+        smoothing: float = 1.0,
+        unseen_penalty: float = 20.0,
+        use_end_symbol: bool = True,
+    ):
         """
         order: how many previous events form the "context" used to predict
             the next one. 1 = "just the previous event" (a classic Markov
@@ -66,6 +96,10 @@ class MarkovDetector(Detector):
             meaningful to look up. 20.0 is deliberately far above what a
             merely-rare-but-known transition would score, so a genuinely
             novel template always dominates the sequence's score.
+        use_end_symbol: append an END token to every sequence so that
+            "sequence stopped here" is itself a learned transition and
+            truncated sequences get a high score. Set False only to
+            reproduce the old behaviour.
         """
         if order < 1:
             raise ValueError("order must be >= 1")
@@ -75,13 +109,22 @@ class MarkovDetector(Detector):
         self.order = order
         self.smoothing = smoothing
         self.unseen_penalty = unseen_penalty
+        self.use_end_symbol = use_end_symbol
 
         self._reset_state()
 
     # -- internals ----------------------------------------------------------
 
     def _padded(self, sequence: list[int]) -> list[int]:
-        return [START_SYMBOL] * self.order + list(sequence)
+        padded = [START_SYMBOL] * self.order + list(sequence)
+        if self.use_end_symbol:
+            padded.append(END_SYMBOL)
+        return padded
+
+    def _canonical(self, sequence: list[int]) -> list[int]:
+        """Map every token the model never saw in (normal) training to
+        UNSEEN_TEMPLATE_ID, so it gets the automatic unseen_penalty."""
+        return [t if t in self._vocab_set else UNSEEN_TEMPLATE_ID for t in sequence]
 
     def _transitions(self, sequence: list[int]):
         """Yield (context_tuple, next_token) pairs for one padded sequence."""
@@ -120,6 +163,7 @@ class MarkovDetector(Detector):
         replaced -- a real, confirmed bug: refitting on a second dataset
         left the first dataset's transitions mixed in."""
         self.vocab_ = []
+        self._vocab_set = set()
         self._vocab_size = 0
         self._transition_counts = defaultdict(Counter)
         self._context_totals = defaultdict(int)
@@ -135,10 +179,12 @@ class MarkovDetector(Detector):
             t for seq in sequences for t in seq if t != UNSEEN_TEMPLATE_ID
         })
         self.vocab_ = vocab
+        self._vocab_set = set(vocab)
         # max(..., 1): if every training sequence is degenerate (empty, or
         # entirely UNSEEN_TEMPLATE_ID), vocab is empty -- avoid div-by-zero
         # in _log_prob rather than crashing on genuinely bad training data.
-        self._vocab_size = max(len(vocab), 1)
+        # +1 for END_SYMBOL, which is a possible "next event" too.
+        self._vocab_size = max(len(vocab), 1) + (1 if self.use_end_symbol else 0)
 
         for seq in sequences:
             clean_seq = [t for t in seq if t != UNSEEN_TEMPLATE_ID]
@@ -162,7 +208,7 @@ class MarkovDetector(Detector):
                 continue
 
             surprisals = []
-            for context, next_token in self._transitions(seq):
+            for context, next_token in self._transitions(self._canonical(seq)):
                 if next_token == UNSEEN_TEMPLATE_ID or UNSEEN_TEMPLATE_ID in context:
                     surprisals.append(self.unseen_penalty)
                 else:
@@ -183,25 +229,33 @@ class MarkovDetector(Detector):
 
     def most_surprising_transition(self, sequence: list[int]):
         """For one sequence, return (prev_template, next_template,
-        surprisal) for whichever step was the most unexpected. prev_template
-        is None if that step was the very first event (context is all
-        START_SYMBOL). This is what src/explain/ will call to turn a bare
-        score into "this fired because event X unexpectedly followed
-        event Y"."""
+        surprisal) for whichever step was the most unexpected.
+
+        prev_template is None if that step was the very first event
+        (context is all START_SYMBOL). next_template is END_SYMBOL when the
+        most surprising thing was the sequence STOPPING where it did
+        (a truncated sequence). Both are reported using the ORIGINAL
+        template IDs from `sequence`, even for IDs the model treats as
+        unseen when scoring, so explanations can name the real template.
+        This is what src/explain/ will call to turn a bare score into
+        "this fired because event X unexpectedly followed event Y"."""
         if not self._fitted:
             raise RuntimeError("call fit() before most_surprising_transition()")
         if not sequence:
             return None, None, 0.0
 
+        original = list(self._transitions(sequence))
+        scored = list(self._transitions(self._canonical(sequence)))
+
         best = (None, None, -1.0)
-        for context, next_token in self._transitions(sequence):
+        for (orig_ctx, orig_next), (context, next_token) in zip(original, scored):
             if next_token == UNSEEN_TEMPLATE_ID or UNSEEN_TEMPLATE_ID in context:
                 surprisal = self.unseen_penalty
             else:
                 surprisal = -self._log_prob(context, next_token)
 
             if surprisal > best[2]:
-                prev = None if context[-1] == START_SYMBOL else context[-1]
-                best = (prev, next_token, surprisal)
+                prev = None if orig_ctx[-1] == START_SYMBOL else orig_ctx[-1]
+                best = (prev, orig_next, surprisal)
 
         return best

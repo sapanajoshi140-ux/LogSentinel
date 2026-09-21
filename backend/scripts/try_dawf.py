@@ -72,7 +72,12 @@ def main() -> None:
     # -- 1. fit both detectors on train only ---------------------------------
     print("\nFitting EWMA and Markov on train split...")
     ewma = EWMADetector(alpha=0.3).fit(train_seqs)
-    markov = MarkovDetector(order=1).fit(train_seqs)
+    # Markov models NORMAL behaviour, so fit it on label-0 train rows only.
+    # (This script's binary labels count "Unknown" as 0; the evaluation
+    # pipeline in src/pipeline/evaluate.py excludes Unknown properly.)
+    markov = MarkovDetector(order=1).fit(
+        [s for s, y in zip(train_seqs, train_labels) if y == 0]
+    )
 
     # -- 2 & 3. calibrate each detector's raw scores into probabilities,
     #    using VAL only ---------------------------------------------------

@@ -3,7 +3,8 @@
 Mid-progress evaluation pipeline for EWMA and Markov.
 
 THE METHODOLOGY, IN ORDER (why each step happens where it does)
-    1. Fit EWMA and Markov on TRAIN sequences only.
+    1. Fit EWMA and Markov on TRAIN sequences only (Markov on the
+       confirmed-Normal train rows only -- see markov.py).
     2. Score VAL sequences with both (frozen) detectors.
     3. Select each detector's own decision threshold on VAL, maximizing
        F1 -- independently per detector, since EWMA's z-scores and
@@ -43,7 +44,7 @@ from src.evaluation.metrics import (
     filter_unknown,
     select_threshold,
 )
-from src.features.loading import load_split_csv_with_raw_labels
+from src.features.loading import load_split_csv_with_raw_labels, normal_only
 
 
 def run_evaluation(
@@ -54,13 +55,16 @@ def run_evaluation(
     """Runs the full methodology described in the module docstring.
     Returns a dict keyed by method name: "ewma", "markov", "or", "and"."""
 
-    train_seqs, _, _, _ = load_split_csv_with_raw_labels(data_dir / "train.csv")
+    train_seqs, _, _, train_raw = load_split_csv_with_raw_labels(data_dir / "train.csv")
     val_seqs, _, _, val_raw = load_split_csv_with_raw_labels(data_dir / "val.csv")
     test_seqs, _, _, test_raw = load_split_csv_with_raw_labels(data_dir / "test.csv")
 
     # -- step 1: fit on train only -------------------------------------------
     ewma = EWMADetector(alpha=ewma_alpha).fit(train_seqs)
-    markov = MarkovDetector(order=markov_order).fit(train_seqs)
+    # Markov models what NORMAL looks like, so it is fitted on confirmed-
+    # Normal train rows only. Fitting on everything teaches it the
+    # anomalies' transitions as if they were normal (lower recall).
+    markov = MarkovDetector(order=markov_order).fit(normal_only(train_seqs, train_raw))
 
     # -- step 2 & 3: score val, select thresholds ----------------------------
     # Threshold selection must exclude "Unknown" val rows too -- an
