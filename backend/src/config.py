@@ -44,7 +44,7 @@ class DAWFConfig:
 @dataclass
 class PathsConfig:
     raw_log: str = "data/raw/HDFS.log"
-    labels: str = "data/raw/anomaly_label.csv"
+    labels: str | None = "data/raw/anomaly_label.csv"  # None for BGL (labels are in the log lines)
     processed_dir: str = "data/processed"
     artifacts_dir: str = "artifacts"
     results_dir: str = "results"

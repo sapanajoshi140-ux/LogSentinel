@@ -230,3 +230,22 @@ def test_run_evaluation_or_recall_at_least_as_good_as_either_detector(synthetic_
     or_recall = report["results"]["or"].recall
     assert or_recall >= report["results"]["ewma"].recall - 1e-9
     assert or_recall >= report["results"]["markov"].recall - 1e-9
+
+# -- timing metrics (proposal: training time + per-sequence inference time) ---
+
+def test_run_evaluation_reports_timing_for_both_detectors(synthetic_split_dir):
+    report = run_evaluation(synthetic_split_dir)
+    assert set(report["timing"].keys()) == {"ewma", "markov"}
+    for t in report["timing"].values():
+        assert t["train_seconds"] >= 0
+        assert t["inference_ms_per_sequence"] >= 0
+
+
+# -- BGL config ---------------------------------------------------------------
+
+def test_bgl_config_is_really_bgl():
+    from src.config import load_config
+    cfg = load_config(Path(__file__).resolve().parent.parent / "config" / "bgl.yaml")
+    assert cfg.dataset == "bgl"
+    assert "BGL" in cfg.paths.raw_log
+    assert cfg.paths.labels is None

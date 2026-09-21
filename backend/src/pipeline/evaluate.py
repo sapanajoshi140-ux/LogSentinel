@@ -32,10 +32,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from pathlib import Path
 
 import numpy as np
 
+from src.config import load_config
 from src.detectors.ewma import EWMADetector
 from src.detectors.markov import MarkovDetector
 from src.evaluation.metrics import (
@@ -60,11 +62,17 @@ def run_evaluation(
     test_seqs, _, _, test_raw = load_split_csv_with_raw_labels(data_dir / "test.csv")
 
     # -- step 1: fit on train only -------------------------------------------
+    t0 = time.perf_counter()
     ewma = EWMADetector(alpha=ewma_alpha).fit(train_seqs)
+    ewma_train_s = time.perf_counter() - t0
+
     # Markov models what NORMAL looks like, so it is fitted on confirmed-
     # Normal train rows only. Fitting on everything teaches it the
     # anomalies' transitions as if they were normal (lower recall).
-    markov = MarkovDetector(order=markov_order).fit(normal_only(train_seqs, train_raw))
+    markov_train_seqs = normal_only(train_seqs, train_raw)
+    t0 = time.perf_counter()
+    markov = MarkovDetector(order=markov_order).fit(markov_train_seqs)
+    markov_train_s = time.perf_counter() - t0
 
     # -- step 2 & 3: score val, select thresholds ----------------------------
     # Threshold selection must exclude "Unknown" val rows too -- an
@@ -87,8 +95,27 @@ def run_evaluation(
     # (ewma, markov, ewma_threshold, markov_threshold are not modified again)
 
     # -- step 5: score test, apply frozen thresholds, report ----------------
+    t0 = time.perf_counter()
     ewma_test_scores = ewma.score(test_seqs)
+    ewma_infer_s = time.perf_counter() - t0
+
+    t0 = time.perf_counter()
     markov_test_scores = markov.score(test_seqs)
+    markov_infer_s = time.perf_counter() - t0
+
+    # Per-sequence inference time is measured over the WHOLE test split
+    # (including "Unknown" rows, which are still scored, just not reported).
+    n_test = max(len(test_seqs), 1)
+    timing = {
+        "ewma": {
+            "train_seconds": ewma_train_s,
+            "inference_ms_per_sequence": ewma_infer_s / n_test * 1000.0,
+        },
+        "markov": {
+            "train_seconds": markov_train_s,
+            "inference_ms_per_sequence": markov_infer_s / n_test * 1000.0,
+        },
+    }
 
     test_raw_f, ewma_test_scores_f, markov_test_scores_f = filter_unknown(
         test_raw, ewma_test_scores, markov_test_scores
@@ -115,6 +142,7 @@ def run_evaluation(
     return {
         "results": results,
         "thresholds": {"ewma": ewma_threshold, "markov": markov_threshold},
+        "timing": timing,
         "n_test_excluded_unknown": len(test_raw) - len(test_raw_f),
         "n_val_excluded_unknown": len(val_raw) - len(val_raw_f),
     }
@@ -139,29 +167,48 @@ def print_report(report: dict) -> None:
               f"{auc_str:>8} {d['tp']:7d} {d['fp']:7d} {d['fn']:7d} {d['tn']:9d} "
               f"{d['n_predicted_anomalies']:10d}")
 
+    print("\n--- Timing (EWMA and Markov; OR/AND reuse their scores) ---")
+    print(f"{'detector':10} {'train (s)':>12} {'inference (ms/seq)':>20}")
+    for name, t in report["timing"].items():
+        print(f"{name:10} {t['train_seconds']:12.4f} {t['inference_ms_per_sequence']:20.6f}")
+
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="EWMA/Markov mid-progress evaluation pipeline")
-    ap.add_argument("--data-dir", type=Path, default=Path("data/processed/hdfs_split"))
-    ap.add_argument("--ewma-alpha", type=float, default=0.3)
-    ap.add_argument("--markov-order", type=int, default=1)
+    ap.add_argument("--config", type=Path, default=None,
+                     help="e.g. config/bgl.yaml. Supplies dataset name, EWMA alpha and "
+                          "Markov order. Explicit flags below override it.")
+    ap.add_argument("--data-dir", type=Path, default=None,
+                     help="Folder with train.csv/val.csv/test.csv. Defaults to "
+                          "data/processed/<dataset>_split (dataset from --config, else hdfs).")
+    ap.add_argument("--ewma-alpha", type=float, default=None)
+    ap.add_argument("--markov-order", type=int, default=None)
     ap.add_argument("--output-json", type=Path, default=None,
                      help="Optional path to save results as JSON")
     args = ap.parse_args()
 
+    cfg = load_config(args.config) if args.config else None
+    dataset = cfg.dataset if cfg else "hdfs"
+    alpha = args.ewma_alpha if args.ewma_alpha is not None else (cfg.detectors.ewma_alpha if cfg else 0.3)
+    order = args.markov_order if args.markov_order is not None else (cfg.detectors.markov_order if cfg else 1)
+    data_dir = args.data_dir or Path("data/processed") / f"{dataset}_split"
+
     for name in ("train.csv", "val.csv", "test.csv"):
-        if not (args.data_dir / name).exists():
-            print(f"ERROR: {args.data_dir / name} does not exist. "
+        if not (data_dir / name).exists():
+            print(f"ERROR: {data_dir / name} does not exist. "
                   f"Run parsing + splitting first (see README.md).")
             raise SystemExit(1)
 
-    report = run_evaluation(args.data_dir, args.ewma_alpha, args.markov_order)
+    print(f"Dataset: {dataset} | data dir: {data_dir} | ewma_alpha={alpha} | markov_order={order}")
+    report = run_evaluation(data_dir, alpha, order)
     print_report(report)
 
     if args.output_json:
         args.output_json.parent.mkdir(parents=True, exist_ok=True)
         serializable = {
+            "dataset": dataset,
             "thresholds": report["thresholds"],
+            "timing": report["timing"],
             "n_val_excluded_unknown": report["n_val_excluded_unknown"],
             "n_test_excluded_unknown": report["n_test_excluded_unknown"],
             "results": {k: v.as_dict() for k, v in report["results"].items()},
