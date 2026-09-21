@@ -76,11 +76,7 @@ class MarkovDetector(Detector):
         self.smoothing = smoothing
         self.unseen_penalty = unseen_penalty
 
-        self.vocab_: list[int] = []
-        self._vocab_size = 0
-        self._transition_counts: dict[tuple, Counter] = defaultdict(Counter)
-        self._context_totals: dict[tuple, int] = defaultdict(int)
-        self._fitted = False
+        self._reset_state()
 
     # -- internals ----------------------------------------------------------
 
@@ -98,23 +94,51 @@ class MarkovDetector(Detector):
         """Laplace-smoothed log P(next_token | context), over the REAL
         vocabulary only. Contexts never seen in training fall back
         naturally to a uniform smoothed estimate -- no special-casing
-        needed, since count=0 and total=0 plug into the same formula."""
-        count = self._transition_counts[context][next_token]
-        total = self._context_totals[context]
+        needed, since count=0 and total=0 plug into the same formula.
+
+        Uses .get() rather than [] on purpose: self._transition_counts and
+        self._context_totals are defaultdicts, and simply READING a
+        missing key with [] auto-inserts it (a real bug found by testing:
+        merely calling score() on a sequence with a never-seen context was
+        silently mutating the fitted state by inserting empty entries).
+        .get() performs a read-only lookup with no such side effect."""
+        counter = self._transition_counts.get(context)
+        count = counter.get(next_token, 0) if counter is not None else 0
+        total = self._context_totals.get(context, 0)
         prob = (count + self.smoothing) / (total + self.smoothing * self._vocab_size)
         return math.log(prob)
 
     # -- public API -----------------------------------------------------------
 
+    def _reset_state(self) -> None:
+        """Clear every piece of learned state. Called at the start of
+        fit(), so a second fit() call is a clean re-fit, not an
+        accumulation on top of whatever the first fit() learned. Before
+        this existed, self._transition_counts and self._context_totals
+        (created once in __init__ as defaultdicts) silently kept growing
+        across repeated fit() calls, while self.vocab_ was correctly
+        replaced -- a real, confirmed bug: refitting on a second dataset
+        left the first dataset's transitions mixed in."""
+        self.vocab_ = []
+        self._vocab_size = 0
+        self._transition_counts = defaultdict(Counter)
+        self._context_totals = defaultdict(int)
+        self._fitted = False
+
     def fit(self, sequences: list[list[int]], labels: list[int] | None = None) -> "MarkovDetector":
         if not sequences:
             raise ValueError("fit() requires at least one training sequence")
+
+        self._reset_state()
 
         vocab = sorted({
             t for seq in sequences for t in seq if t != UNSEEN_TEMPLATE_ID
         })
         self.vocab_ = vocab
-        self._vocab_size = max(len(vocab), 1)  # avoid div-by-zero if train data is degenerate
+        # max(..., 1): if every training sequence is degenerate (empty, or
+        # entirely UNSEEN_TEMPLATE_ID), vocab is empty -- avoid div-by-zero
+        # in _log_prob rather than crashing on genuinely bad training data.
+        self._vocab_size = max(len(vocab), 1)
 
         for seq in sequences:
             clean_seq = [t for t in seq if t != UNSEEN_TEMPLATE_ID]
@@ -150,7 +174,12 @@ class MarkovDetector(Detector):
             # unusual. Same length-bias fix already applied to EWMA.
             scores[i] = float(np.mean(surprisals)) if surprisals else 0.0
 
-        return scores
+        # Safety net: every branch above should already produce a finite
+        # value (unseen_penalty is a fixed finite constant, _log_prob's
+        # denominator is always > 0 because of Laplace smoothing), but
+        # guarantee it rather than assume it -- a NaN/inf score would
+        # silently corrupt DAWF fusion and threshold selection downstream.
+        return np.nan_to_num(scores, nan=0.0, posinf=self.unseen_penalty, neginf=0.0)
 
     def most_surprising_transition(self, sequence: list[int]):
         """For one sequence, return (prev_template, next_template,

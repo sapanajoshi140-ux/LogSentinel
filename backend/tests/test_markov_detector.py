@@ -159,3 +159,64 @@ def test_context_never_seen_in_training_falls_back_to_uniform_smoothing():
     # (7, 8) as a context pair never appeared anywhere in training
     score = det.score([[7, 8, 1]])[0]
     assert np.isfinite(score)
+
+
+def test_refit_fully_resets_state_not_accumulates():
+    """Confirms the real reset-state bug is fixed: a second fit() call
+    must not leave the first call's vocabulary or transition counts mixed
+    in. Before the fix, self._transition_counts and self._context_totals
+    (defaultdicts created once in __init__) kept growing across repeated
+    fit() calls even though self.vocab_ was correctly replaced."""
+    det = MarkovDetector(order=1)
+    det.fit([[1, 2, 3]] * 10)
+    det.fit([[5, 6, 7]] * 10)  # completely different vocabulary
+
+    fresh = MarkovDetector(order=1).fit([[5, 6, 7]] * 10)
+
+    assert det.vocab_ == fresh.vocab_
+    assert 1 not in det.vocab_ and 2 not in det.vocab_
+    assert (1,) not in det._transition_counts, "old transitions leaked across fit() calls"
+    assert dict(det._context_totals) == dict(fresh._context_totals)
+    np.testing.assert_allclose(det.score([[5, 6, 7]]), fresh.score([[5, 6, 7]]))
+
+
+def test_scoring_does_not_mutate_fitted_state():
+    """score() must be read-only, same principle as EWMA -- online
+    adaptation belongs to DAWF, not to each individual detector."""
+    det = MarkovDetector(order=1).fit(TRAIN)
+    vocab_before = list(det.vocab_)
+    totals_before = dict(det._context_totals)
+
+    det.score([[1, 9, 2, 3]])
+    det.score([SHORT_NORMAL])
+    det.most_surprising_transition([1, 2, 3])
+
+    assert det.vocab_ == vocab_before
+    assert dict(det._context_totals) == totals_before
+
+
+def test_unseen_penalty_is_configurable():
+    det_low = MarkovDetector(order=1, unseen_penalty=5.0).fit(TRAIN)
+    det_high = MarkovDetector(order=1, unseen_penalty=50.0).fit(TRAIN)
+    seq = [1, 2, UNSEEN_TEMPLATE_ID, 3]
+    assert det_low.score([seq])[0] < det_high.score([seq])[0]
+
+
+def test_score_is_always_finite_even_for_degenerate_input():
+    det = MarkovDetector(order=1).fit(TRAIN)
+    weird_inputs = [
+        [],
+        [UNSEEN_TEMPLATE_ID] * 50,
+        [1] * 10000,
+    ]
+    scores = det.score(weird_inputs)
+    assert np.all(np.isfinite(scores)), f"non-finite score found: {scores}"
+
+
+def test_fit_on_degenerate_training_data_does_not_crash():
+    """All-empty or all-unseen training sequences should not crash fit()
+    (vocab ends up empty, _vocab_size floors at 1 to avoid div-by-zero)."""
+    det = MarkovDetector(order=1).fit([[], [], []])
+    assert det.vocab_ == []
+    score = det.score([[1, 2, 3]])[0]
+    assert np.isfinite(score)

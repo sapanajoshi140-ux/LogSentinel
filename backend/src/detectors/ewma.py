@@ -49,7 +49,7 @@ from src.features.counts import EventCountVectorizer
 class EWMADetector(Detector):
     name = "ewma"
 
-    def __init__(self, alpha: float = 0.3, normalize: bool = True):
+    def __init__(self, alpha: float = 0.3, normalize: bool = True, variance_floor: float = 1e-6):
         """
         normalize: passed to EventCountVectorizer. Defaults to True after
         discovering on real HDFS_v1 data that raw counts let a block's
@@ -58,16 +58,37 @@ class EWMADetector(Detector):
         under raw counts, purely because they were long-lived blocks with
         more log lines, not because anything unusual happened. See
         src/features/counts.py for the full explanation.
+        variance_floor: minimum variance used when computing a z-score
+            (std = sqrt(max(var, variance_floor))). Without a floor, a
+            template with zero variance in training (e.g. it appeared
+            exactly once in every single training sequence) would produce
+            a division by a number arbitrarily close to zero the moment
+            test data deviates from that constant even slightly, making
+            the z-score explode toward infinity for reasons that have
+            nothing to do with how unusual the deviation actually is.
+            1e-6 is deliberately small -- it only matters when true
+            variance is near-zero, and barely affects templates with any
+            real spread.
         """
         if not 0 < alpha <= 1:
             raise ValueError("alpha must be in (0, 1]")
+        if variance_floor <= 0:
+            raise ValueError("variance_floor must be > 0")
         self.alpha = alpha
+        self.variance_floor = variance_floor
         self.vectorizer = EventCountVectorizer(normalize=normalize)
         self._mean: np.ndarray | None = None
         self._var: np.ndarray | None = None
         self._fitted = False
 
     def fit(self, sequences: list[list[int]], labels: list[int] | None = None) -> "EWMADetector":
+        """Fits on `sequences`. Calling fit() again with new data is a full
+        reset, not an accumulation: self.vectorizer.fit() below replaces
+        the vocabulary outright (see EventCountVectorizer.fit -- it
+        reassigns self.vocab_ and self._index rather than extending them),
+        and self._mean / self._var are freshly recomputed local arrays
+        below, not updated in place. So the previous fit's state cannot
+        leak into a second fit() call."""
         if not sequences:
             raise ValueError("fit() requires at least one training sequence")
 
@@ -92,9 +113,14 @@ class EWMADetector(Detector):
             return np.array([])
 
         X = self.vectorizer.transform(sequences)
-        std = np.sqrt(np.maximum(self._var, 1e-6))
+        std = np.sqrt(np.maximum(self._var, self.variance_floor))
         z = np.abs(X - self._mean) / std
-        return z.max(axis=1)
+        scores = z.max(axis=1)
+        # Safety net: the variance floor above should already prevent a
+        # division producing NaN/inf, but guarantee it rather than assume
+        # it -- an unbounded score would silently corrupt DAWF fusion and
+        # threshold selection downstream.
+        return np.nan_to_num(scores, nan=0.0, posinf=np.finfo(np.float64).max, neginf=0.0)
 
     def most_deviant_template(self, sequence: list[int]) -> tuple[int | None, float]:
         """For one sequence, return (template_id, z_score) of whichever
@@ -102,9 +128,11 @@ class EWMADetector(Detector):
         trailing "unknown" bucket that fired. This is what src/explain/
         will call to turn a bare score into "this fired because of
         template X"."""
+        if not self._fitted:
+            raise RuntimeError("call fit() before most_deviant_template()")
         X = self.vectorizer.transform([sequence])[0]
-        std = np.sqrt(np.maximum(self._var, 1e-6))
+        std = np.sqrt(np.maximum(self._var, self.variance_floor))
         z = np.abs(X - self._mean) / std
         idx = int(np.argmax(z))
         template_id = self.vectorizer.vocab_[idx] if idx < len(self.vectorizer.vocab_) else None
-        return template_id, float(z[idx])
+        return template_id, float(np.nan_to_num(z[idx]))

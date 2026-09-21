@@ -157,3 +157,59 @@ def test_raw_counts_mode_is_still_available_but_opt_in():
     raw-count behaviour, for anyone who explicitly wants it."""
     det = EWMADetector(alpha=0.3, normalize=False).fit(TRAIN_SEQUENCES)
     assert det.vectorizer.normalize is False
+
+
+def test_refit_fully_resets_state_not_accumulates():
+    """Calling fit() a second time on different data must produce the
+    SAME result as constructing a fresh detector on that data -- no
+    leftover influence from the first fit()."""
+    det = EWMADetector(alpha=0.3)
+    det.fit([[1, 2, 3, 2]] * 30)
+    det.fit([[9, 8, 7]] * 30)  # completely different vocabulary
+
+    fresh = EWMADetector(alpha=0.3).fit([[9, 8, 7]] * 30)
+
+    assert det.vectorizer.vocab_ == fresh.vectorizer.vocab_
+    assert np.allclose(det._mean, fresh._mean)
+    assert np.allclose(det._var, fresh._var)
+    # old vocabulary must be completely gone, not merged in
+    assert 1 not in det.vectorizer.vocab_
+    assert 2 not in det.vectorizer.vocab_
+
+
+def test_variance_floor_is_configurable():
+    det_default = EWMADetector(alpha=0.3, variance_floor=1e-6)
+    det_looser = EWMADetector(alpha=0.3, variance_floor=1.0)
+    assert det_default.variance_floor == 1e-6
+    assert det_looser.variance_floor == 1.0
+
+    # A looser (larger) floor should never produce a HIGHER z-score than
+    # a tighter floor, for the same data -- a bigger denominator (std)
+    # can only shrink or leave unchanged the resulting z-score.
+    det_default.fit(TRAIN_SEQUENCES)
+    det_looser.fit(TRAIN_SEQUENCES)
+    novel = [1, 2, 99, 99]
+    assert det_looser.score([novel])[0] <= det_default.score([novel])[0]
+
+
+def test_rejects_invalid_variance_floor():
+    with pytest.raises(ValueError):
+        EWMADetector(variance_floor=0)
+    with pytest.raises(ValueError):
+        EWMADetector(variance_floor=-1)
+
+
+def test_score_is_always_finite_even_for_degenerate_input():
+    det = EWMADetector(alpha=0.3).fit(TRAIN_SEQUENCES)
+    weird_inputs = [
+        [],                          # empty sequence
+        [UNSEEN_TEMPLATE_ID] * 50,   # entirely unseen tokens
+        [1] * 10000,                 # extreme repetition
+    ]
+    scores = det.score(weird_inputs)
+    assert np.all(np.isfinite(scores)), f"non-finite score found: {scores}"
+
+
+def test_most_deviant_template_before_fit_is_an_error():
+    with pytest.raises(RuntimeError):
+        EWMADetector().most_deviant_template([1, 2, 3])
