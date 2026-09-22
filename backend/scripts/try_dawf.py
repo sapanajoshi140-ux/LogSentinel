@@ -32,6 +32,7 @@ Usage (from inside backend/, venv active):
     python scripts/try_dawf.py
 """
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -54,7 +55,10 @@ def load_all_splits(base_dir: Path):
 
 
 def main() -> None:
-    base_dir = Path("data/processed/hdfs_split")
+    ap = argparse.ArgumentParser(description="Run EWMA+Markov through DAWF on real split data")
+    ap.add_argument("--data-dir", type=Path, default=Path("data/processed/hdfs_split"))
+    args = ap.parse_args()
+    base_dir = args.data_dir
     for name in ("train.csv", "val.csv", "test.csv"):
         if not (base_dir / name).exists():
             print(f"ERROR: {base_dir / name} does not exist.")
@@ -72,12 +76,7 @@ def main() -> None:
     # -- 1. fit both detectors on train only ---------------------------------
     print("\nFitting EWMA and Markov on train split...")
     ewma = EWMADetector(alpha=0.3).fit(train_seqs)
-    # Markov models NORMAL behaviour, so fit it on label-0 train rows only.
-    # (This script's binary labels count "Unknown" as 0; the evaluation
-    # pipeline in src/pipeline/evaluate.py excludes Unknown properly.)
-    markov = MarkovDetector(order=1).fit(
-        [s for s, y in zip(train_seqs, train_labels) if y == 0]
-    )
+    markov = MarkovDetector(order=1).fit(train_seqs)
 
     # -- 2 & 3. calibrate each detector's raw scores into probabilities,
     #    using VAL only ---------------------------------------------------
@@ -150,7 +149,7 @@ def main() -> None:
           "DAWF having learned one detector was more reliable on this data)")
 
     # save weight trajectory for later plotting / drift analysis
-    out_dir = Path("results/hdfs")
+    out_dir = Path("results") / base_dir.name.replace("_split", "")
     out_dir.mkdir(parents=True, exist_ok=True)
     traj = dawf.weight_trajectory()
     with (out_dir / "dawf_weight_trajectory.csv").open("w") as f:
